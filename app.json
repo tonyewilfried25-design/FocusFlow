@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "FocusFlow",
-    "slug": "focusflow",
+    "slug": "FocusFlow",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -28,17 +28,7 @@
     },
     "owner": "tonye01",
     "plugins": [
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "minSdkVersion": 24,
-            "compileSdkVersion": 34,
-            "targetSdkVersion": 34,
-            "buildToolsVersion": "34.0.0"
-          }
-        }
-      ]
+      "expo-build-properties"
     ]
   }
 }
