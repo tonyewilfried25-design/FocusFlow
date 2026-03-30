@@ -28,12 +28,13 @@ export default function App() {
   const [appsBloquees, setAppsBloquees] = useState([]);
   const t = translations[langue];
 
-  // --- LE GARDIEN DE BLOCAGE RÉEL ---
+  // --- LE GARDIEN DE BLOCAGE (VERSION STABLE) ---
   useEffect(() => {
     let checkInterval = null;
     if (actif && appsBloquees.length > 0) {
       checkInterval = setInterval(async () => {
         try {
+          // On récupère l'application au premier plan
           const currentApp = await UsageStats.getForegroundApp();
           const BLACKLIST = {
             "TikTok": "com.zhiliaoapp.musically",
@@ -43,14 +44,19 @@ export default function App() {
             "Snapchat": "com.snapchat.android"
           };
           
-          const estInterdite = appsBloquees.some(app => currentApp.includes(BLACKLIST[app]));
+          const estInterdite = appsBloquees.some(name => {
+             const pkg = BLACKLIST[name];
+             return currentApp && currentApp.includes(pkg);
+          });
           
           if (estInterdite) {
             Vibration.vibrate(1000);
             Alert.alert("🚨 " + t.blockTitle, t.dontLeave);
           }
-        } catch (e) {}
-      }, 2000);
+        } catch (e) {
+          // Sécurité pour éviter le crash
+        }
+      }, 2500); // On vérifie toutes les 2.5s pour économiser ta batterie
     }
     return () => clearInterval(checkInterval);
   }, [actif, appsBloquees, t]);
@@ -64,12 +70,14 @@ export default function App() {
     const charger = async () => {
       const sL = await AsyncStorage.getItem('L');
       const sP = await AsyncStorage.getItem('EST_PREMIUM');
+      const sMS = await AsyncStorage.getItem('MS');
       const sJ = await AsyncStorage.getItem('J');
       const sT = await AsyncStorage.getItem('T');
       const sA = await AsyncStorage.getItem('A');
       const sD = await AsyncStorage.getItem('D');
       if (sL) setLangue(sL);
       if (sP === 'true') setEstPremium(true);
+      if (sMS === 'false') setModeSombre(false);
       if (sJ) setJetons(parseInt(sJ));
       if (sT) setTotalSec(parseInt(sT));
       if (sA) setAppsBloquees(JSON.parse(sA));
