@@ -7,7 +7,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import UsageStats from 'react-native-usage-stats'; 
 import { translations } from './src/translations/i18n';
 
-// Imports des écrans
 import HomeScreenFree from './src/screens/free/HomeScreenFree';
 import ShopScreenFree from './src/screens/free/ShopScreenFree';
 import SettingsScreenFree from './src/screens/free/SettingsScreenFree';
@@ -27,21 +26,16 @@ export default function App() {
   const [estPremium, setEstPremium] = useState(false);
   const [modeSombre, setModeSombre] = useState(true);
   const [appsBloquees, setAppsBloquees] = useState([]);
-  
-  const etaitActifAvantQuitter = useRef(false);
   const t = translations[langue];
 
-  // --- LE GARDIEN DE BLOCAGE RÉEL ---
+  // --- GARDIEN DE BLOCAGE (VIBRATION SI HORS APP) ---
   useEffect(() => {
     let checkInterval = null;
 
     if (actif && appsBloquees.length > 0) {
       checkInterval = setInterval(async () => {
         try {
-          // On demande au système quelle app est ouverte
           const currentApp = await UsageStats.getForegroundApp();
-          
-          // Dictionnaire des noms techniques des apps
           const PACKAGES = {
             "TikTok": "com.zhiliaoapp.musically",
             "Instagram": "com.instagram.android",
@@ -50,24 +44,18 @@ export default function App() {
             "Snapchat": "com.snapchat.android"
           };
 
-          // On vérifie si l'app ouverte est l'une des apps cochées dans le Shop
           const estInterdite = appsBloquees.some(appNom => {
             const pkg = PACKAGES[appNom];
             return currentApp && currentApp.includes(pkg);
           });
 
           if (estInterdite) {
-            // VIBRATION SANS CESSE (Pattern: 500ms vibre, 500ms pause, répétition = true)
-            Vibration.vibrate([500, 500], true);
-            console.log("ALERTE : L'utilisateur est sur une app interdite !");
+            Vibration.vibrate([500, 500], true); // Vibration sans cesse
           } else {
-            // SI L'APP EST AUTORISÉE (ex: Calculatrice), ON ARRÊTE LA VIBRATION
-            Vibration.cancel();
+            Vibration.cancel(); // Arrêt si retour
           }
-        } catch (e) {
-          console.log("Erreur : As-tu donné la permission 'Données d'usage' ?");
-        }
-      }, 1500); // Vérification toutes les 1.5 secondes
+        } catch (e) {}
+      }, 2000);
     } else {
       Vibration.cancel();
     }
@@ -78,17 +66,23 @@ export default function App() {
     };
   }, [actif, appsBloquees]);
 
-  // Chargement / Sauvegarde
+  const format = (s) => {
+    const m = Math.floor(s / 60); const sec = s % 60;
+    return `${m < 10 ? '0' : ''}${m}:${sec < 10 ? '0' : ''}${sec}`;
+  };
+
   useEffect(() => {
     const charger = async () => {
       const sL = await AsyncStorage.getItem('L');
       const sP = await AsyncStorage.getItem('EST_PREMIUM');
+      const sMS = await AsyncStorage.getItem('MS');
       const sJ = await AsyncStorage.getItem('J');
       const sT = await AsyncStorage.getItem('T');
       const sA = await AsyncStorage.getItem('A');
       const sD = await AsyncStorage.getItem('D');
       if (sL) setLangue(sL);
       if (sP === 'true') setEstPremium(true);
+      if (sMS === 'false') setModeSombre(false);
       if (sJ) setJetons(parseInt(sJ));
       if (sT) setTotalSec(parseInt(sT));
       if (sA) setAppsBloquees(JSON.parse(sA));
@@ -101,9 +95,10 @@ export default function App() {
     AsyncStorage.setItem('J', jetons.toString());
     AsyncStorage.setItem('T', totalSec.toString());
     AsyncStorage.setItem('EST_PREMIUM', estPremium ? 'true' : 'false');
+    AsyncStorage.setItem('MS', modeSombre ? 'true' : 'false');
     AsyncStorage.setItem('L', langue);
     AsyncStorage.setItem('A', JSON.stringify(appsBloquees));
-  }, [jetons, totalSec, estPremium, appsBloquees]);
+  }, [jetons, totalSec, estPremium, modeSombre, langue, appsBloquees]);
 
   const toggleApp = (name) => {
     if (appsBloquees.includes(name)) { setAppsBloquees(appsBloquees.filter(a => a !== name)); }
@@ -114,12 +109,13 @@ export default function App() {
     }
   };
 
-  const format = (s) => {
-    const m = Math.floor(s / 60); const sec = s % 60;
-    return `${m < 10 ? '0' : ''}${m}:${sec < 10 ? '0' : ''}${sec}`;
+  const reinitialiser = () => {
+    Alert.alert(t.confirmReset, "", [{ text: t.cancel }, { text: "OK", onPress: async () => {
+      setJetons(0); setTotalSec(0); setAppsBloquees([]); setSecondes(1500); setDureePreferee(1500);
+      await AsyncStorage.multiRemove(['J', 'T', 'A']);
+    }}]);
   };
 
-  // Chrono
   useEffect(() => {
     let int = null;
     if (actif && secondes > 0) int = setInterval(() => setSecondes(s => s - 1), 1000);
@@ -151,8 +147,8 @@ export default function App() {
         </Tab.Screen>
         <Tab.Screen name="SettingsTab" options={{ title: t.settings, tabBarIcon: ({color}) => <SettingsIcon color={color} /> }}>
           {() => estPremium ? 
-            <SettingsScreenPremium t={t} langue={langue} changerLangue={setLangue} dureeActuelle={dureePreferee} changerDuree={(d)=>{setDureePreferee(d);setSecondes(d)}} reinitialiser={()=>setJetons(0)} setEstPremium={setEstPremium} modeSombre={modeSombre} setModeSombre={setModeSombre} /> : 
-            <SettingsScreenFree t={t} langue={langue} changerLangue={setLangue} dureeActuelle={dureePreferee} changerDuree={(d)=>{setDureePreferee(d);setSecondes(d)}} reinitialiser={()=>setJetons(0)} setEstPremium={setEstPremium} />
+            <SettingsScreenPremium t={t} langue={langue} changerLangue={setLangue} dureeActuelle={dureePreferee} changerDuree={(d)=>{setDureePreferee(d);setSecondes(d)}} reinitialiser={reinitialiser} setEstPremium={setEstPremium} modeSombre={modeSombre} setModeSombre={setModeSombre} /> : 
+            <SettingsScreenFree t={t} langue={langue} changerLangue={setLangue} dureeActuelle={dureePreferee} changerDuree={(d)=>{setDureePreferee(d);setSecondes(d)}} reinitialiser={reinitialiser} setEstPremium={setEstPremium} />
           }
         </Tab.Screen>
       </Tab.Navigator>
