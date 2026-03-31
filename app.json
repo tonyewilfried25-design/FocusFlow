@@ -1,42 +1,53 @@
 {
   "expo": {
     "name": "FocusFlow",
-    "slug": "FocusFlow",
+    "slug": "focusflow",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
     "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#ffffff"
+      },
       "package": "com.tonye.focusflow",
       "permissions": [
         "PACKAGE_USAGE_STATS",
         "SYSTEM_ALERT_WINDOW",
         "VIBRATE"
-      ],
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#ffffff"
-      }
+      ]
     },
-    "extra": {
-      "eas": {
-        "projectId": "3544654f-9919-4c1f-990c-eea818c29056"
-      }
-    },
-    "owner": "tonye01",
     "plugins": [
       [
         "expo-build-properties",
         {
           "android": {
-            "minSdkVersion": 24,
             "compileSdkVersion": 34,
             "targetSdkVersion": 34,
+            "minSdkVersion": 26,
             "buildToolsVersion": "34.0.0",
-            "kotlinVersion": "1.8.10"
+            "kotlinVersion": "1.9.24"
           }
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3544654f-9919-4c1f-990c-eea818c29056"
+      }
+    },
+    "owner": "tonye01"
   }
 }
