@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import UsageStats from 'react-native-usage-stats'; 
 import { translations } from './src/translations/i18n';
 
+// Imports des écrans
 import HomeScreenFree from './src/screens/free/HomeScreenFree';
 import ShopScreenFree from './src/screens/free/ShopScreenFree';
 import SettingsScreenFree from './src/screens/free/SettingsScreenFree';
@@ -17,6 +18,7 @@ import SettingsScreenPremium from './src/screens/premium/SettingsScreenPremium';
 const Tab = createBottomTabNavigator();
 
 export default function App() {
+  // --- ÉTATS GLOBAUX ---
   const [langue, setLangue] = useState('fr');
   const [secondes, setSecondes] = useState(1500); 
   const [dureePreferee, setDureePreferee] = useState(1500);
@@ -26,9 +28,18 @@ export default function App() {
   const [estPremium, setEstPremium] = useState(false);
   const [modeSombre, setModeSombre] = useState(true);
   const [appsBloquees, setAppsBloquees] = useState([]);
+  
+  const etaitActifAvantQuitter = useRef(false);
   const t = translations[langue];
 
-  // --- GARDIEN DE BLOCAGE (VIBRATION SI HORS APP) ---
+  // --- TRADUCTEUR DE FORMAT (00:00) ---
+  const format = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m < 10 ? '0' : ''}${m}:${sec < 10 ? '0' : ''}${sec}`;
+  };
+
+  // --- LE GARDIEN DE BLOCAGE RÉEL (UsageStats 0.0.9) ---
   useEffect(() => {
     let checkInterval = null;
 
@@ -36,7 +47,9 @@ export default function App() {
       checkInterval = setInterval(async () => {
         try {
           const currentApp = await UsageStats.getForegroundApp();
-          const PACKAGES = {
+          
+          // Noms techniques des dossiers d'applications (Packages)
+          const BLACKLIST = {
             "TikTok": "com.zhiliaoapp.musically",
             "Instagram": "com.instagram.android",
             "YouTube": "com.google.android.youtube",
@@ -44,65 +57,98 @@ export default function App() {
             "Snapchat": "com.snapchat.android"
           };
 
-          const estInterdite = appsBloquees.some(appNom => {
-            const pkg = PACKAGES[appNom];
+          const estInterdite = appsBloquees.some(name => {
+            const pkg = BLACKLIST[name];
             return currentApp && currentApp.includes(pkg);
           });
 
           if (estInterdite) {
-            Vibration.vibrate([500, 500], true); // Vibration sans cesse
-          } else {
-            Vibration.cancel(); // Arrêt si retour
+            Vibration.vibrate(2000);
+            Alert.alert("🚨 " + t.blockTitle, t.dontLeave);
+            // Sur Android, l'affichage de l'alerte force souvent le focus à revenir sur l'app
           }
-        } catch (e) {}
-      }, 2000);
-    } else {
-      Vibration.cancel();
+        } catch (e) {
+          console.log("Erreur de détection");
+        }
+      }, 2500);
     }
+    return () => clearInterval(checkInterval);
+  }, [actif, appsBloquees, t]);
 
-    return () => {
-        clearInterval(checkInterval);
-        Vibration.cancel();
-    };
-  }, [actif, appsBloquees]);
-
-  const format = (s) => {
-    const m = Math.floor(s / 60); const sec = s % 60;
-    return `${m < 10 ? '0' : ''}${m}:${sec < 10 ? '0' : ''}${sec}`;
-  };
-
+  // --- CHARGEMENT DES DONNÉES (MÉMOIRE) ---
   useEffect(() => {
     const charger = async () => {
-      const sL = await AsyncStorage.getItem('L');
-      const sP = await AsyncStorage.getItem('EST_PREMIUM');
-      const sMS = await AsyncStorage.getItem('MS');
-      const sJ = await AsyncStorage.getItem('J');
-      const sT = await AsyncStorage.getItem('T');
-      const sA = await AsyncStorage.getItem('A');
-      const sD = await AsyncStorage.getItem('D');
-      if (sL) setLangue(sL);
-      if (sP === 'true') setEstPremium(true);
-      if (sMS === 'false') setModeSombre(false);
-      if (sJ) setJetons(parseInt(sJ));
-      if (sT) setTotalSec(parseInt(sT));
-      if (sA) setAppsBloquees(JSON.parse(sA));
-      if (sD) { setDureePreferee(parseInt(sD)); setSecondes(parseInt(sD)); }
+      try {
+        const sL = await AsyncStorage.getItem('L');
+        const sP = await AsyncStorage.getItem('EST_PREMIUM');
+        const sMS = await AsyncStorage.getItem('MS');
+        const sJ = await AsyncStorage.getItem('J');
+        const sT = await AsyncStorage.getItem('T');
+        const sA = await AsyncStorage.getItem('A');
+        const sD = await AsyncStorage.getItem('D');
+
+        if (sL) setLangue(sL);
+        if (sP === 'true') setEstPremium(true);
+        if (sMS === 'false') setModeSombre(false);
+        if (sJ) setJetons(parseInt(sJ));
+        if (sT) setTotalSec(parseInt(sT));
+        if (sA) setAppsBloquees(JSON.parse(sA));
+        if (sD) { setDureePreferee(parseInt(sD)); setSecondes(parseInt(sD)); }
+      } catch (e) { console.log("Erreur stockage"); }
     };
     charger();
   }, []);
 
+  // --- SAUVEGARDE AUTOMATIQUE ---
   useEffect(() => {
     AsyncStorage.setItem('J', jetons.toString());
     AsyncStorage.setItem('T', totalSec.toString());
     AsyncStorage.setItem('EST_PREMIUM', estPremium ? 'true' : 'false');
     AsyncStorage.setItem('MS', modeSombre ? 'true' : 'false');
     AsyncStorage.setItem('L', langue);
+    AsyncStorage.setItem('D', dureePreferee.toString());
     AsyncStorage.setItem('A', JSON.stringify(appsBloquees));
-  }, [jetons, totalSec, estPremium, modeSombre, langue, appsBloquees]);
+  }, [jetons, totalSec, estPremium, modeSombre, langue, dureePreferee, appsBloquees]);
+
+  // --- LOGIQUE DU CHRONO ---
+  useEffect(() => {
+    let int = null;
+    if (actif && secondes > 0) {
+      int = setInterval(() => setSecondes(s => s - 1), 1000);
+    } else if (secondes === 0 && actif) {
+      setActif(false);
+      const gain = estPremium ? 20 : 10;
+      setJetons(j => j + gain);
+      setTotalSec(prev => prev + dureePreferee);
+      Vibration.vibrate([500, 200, 500]);
+      Alert.alert("🏆 BRAVO !", `+${gain} ${t.tokens}`);
+      setSecondes(dureePreferee);
+    }
+    return () => clearInterval(int);
+  }, [actif, secondes, dureePreferee]);
+
+  // --- GESTION ANTI-TRICHE (SI ON SORT DE L'APP) ---
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      if (next.match(/inactive|background/) && actif) {
+        etaitActifAvantQuitter.current = true;
+        setActif(false);
+      }
+      if (next === 'active' && etaitActifAvantQuitter.current) {
+        Vibration.vibrate(1000);
+        setJetons(prev => Math.max(0, prev - 5)); // Sanction -5 jetons
+        Alert.alert("⚠️ FOCUS BRISÉ", `${t.dontLeave}\nSanction : -5 ${t.tokens}`);
+        etaitActifAvantQuitter.current = false;
+        setSecondes(dureePreferee);
+      }
+    });
+    return () => sub.remove();
+  }, [actif, dureePreferee, t]);
 
   const toggleApp = (name) => {
-    if (appsBloquees.includes(name)) { setAppsBloquees(appsBloquees.filter(a => a !== name)); }
-    else {
+    if (appsBloquees.includes(name)) {
+      setAppsBloquees(appsBloquees.filter(a => a !== name));
+    } else {
       const limit = estPremium ? 5 : 1;
       if (appsBloquees.length < limit) setAppsBloquees([...appsBloquees, name]);
       else Alert.alert("Limit", estPremium ? t.premiumLimit : t.upgradeAdv);
@@ -110,47 +156,78 @@ export default function App() {
   };
 
   const reinitialiser = () => {
-    Alert.alert(t.confirmReset, "", [{ text: t.cancel }, { text: "OK", onPress: async () => {
-      setJetons(0); setTotalSec(0); setAppsBloquees([]); setSecondes(1500); setDureePreferee(1500);
-      await AsyncStorage.multiRemove(['J', 'T', 'A']);
-    }}]);
+    Alert.alert(t.confirmReset, "", [
+      { text: t.cancel },
+      { text: "OK", onPress: async () => {
+          setJetons(0); setTotalSec(0); setAppsBloquees([]); setSecondes(1500); setDureePreferee(1500);
+          await AsyncStorage.multiRemove(['J', 'T', 'A']);
+      }}
+    ]);
   };
-
-  useEffect(() => {
-    let int = null;
-    if (actif && secondes > 0) int = setInterval(() => setSecondes(s => s - 1), 1000);
-    else if (secondes === 0 && actif) {
-      setActif(false); Vibration.cancel();
-      const gain = estPremium ? 20 : 10;
-      setJetons(j => j + gain); setTotalSec(prev => prev + dureePreferee);
-      Vibration.vibrate([500, 200, 500]);
-      setSecondes(dureePreferee);
-    }
-    return () => clearInterval(int);
-  }, [actif, secondes]);
 
   return (
     <NavigationContainer>
       <Tab.Navigator screenOptions={{ 
         headerShown: false, 
         tabBarActiveTintColor: estPremium ? '#F59E0B' : '#6366F1', 
-        tabBarStyle: { height: 70, paddingBottom: 12, backgroundColor: (estPremium && modeSombre) ? '#0F172A' : 'white', borderTopWidth: 0 }
+        tabBarStyle: { 
+          height: 70, 
+          paddingBottom: 12, 
+          backgroundColor: (estPremium && modeSombre) ? '#0F172A' : 'white', 
+          borderTopWidth: 0 
+        }
       }}>
+        
+        {/* ONGLET FOCUS */}
         <Tab.Screen name="FocusTab" options={{ title: t.focus, tabBarIcon: ({color}) => <Clock color={color} /> }}>
-          {() => estPremium ? 
-            <HomeScreenPremium t={t} secondes={secondes} actif={actif} jetons={jetons} totalSecondes={totalSec} appsBloquees={appsBloquees} modeSombre={modeSombre} demarrer={()=>setActif(true)} abandonner={()=>{setActif(false);setSecondes(dureePreferee);Vibration.cancel()}} mettreEnPause={()=>{setActif(false);Vibration.cancel()}} format={format} pourcentage={(secondes/dureePreferee)*100} /> : 
-            <HomeScreenFree t={t} secondes={secondes} actif={actif} jetons={jetons} totalSecondes={totalSec} appsBloquees={appsBloquees} demarrer={()=>setActif(true)} abandonner={()=>{setActif(false);setSecondes(dureePreferee);Vibration.cancel()}} format={format} pourcentage={(secondes/dureePreferee)*100} setEstPremium={setEstPremium} />
-          }
+          {() => estPremium ? (
+            <HomeScreenPremium 
+              t={t} secondes={secondes} actif={actif} jetons={jetons} 
+              totalSecondes={totalSec} appsBloquees={appsBloquees} 
+              modeSombre={modeSombre} demarrer={()=>setActif(true)} 
+              abandonner={()=>{setActif(false);setSecondes(dureePreferee)}} 
+              mettreEnPause={()=>setActif(false)} 
+              format={format} pourcentage={(secondes/dureePreferee)*100} 
+            />
+          ) : (
+            <HomeScreenFree 
+              t={t} secondes={secondes} actif={actif} jetons={jetons} 
+              totalSecondes={totalSec} appsBloquees={appsBloquees} 
+              demarrer={()=>setActif(true)} 
+              abandonner={()=>{setActif(false);setSecondes(dureePreferee)}} 
+              format={format} pourcentage={(secondes/dureePreferee)*100} 
+              setEstPremium={setEstPremium} 
+            />
+          )}
         </Tab.Screen>
+
+        {/* ONGLET BOUTIQUE */}
         <Tab.Screen name="ShopTab" options={{ title: t.shop, tabBarIcon: ({color}) => <ShoppingBag color={color} /> }}>
-          {() => estPremium ? <ShopScreenPremium t={t} appsBloquees={appsBloquees} toggleApp={toggleApp} modeSombre={modeSombre} /> : <ShopScreenFree t={t} jetons={jetons} setJetons={setJetons} appsBloquees={appsBloquees} toggleApp={toggleApp} />}
+          {() => estPremium ? (
+            <ShopScreenPremium t={t} appsBloquees={appsBloquees} toggleApp={toggleApp} modeSombre={modeSombre} />
+          ) : (
+            <ShopScreenFree t={t} jetons={jetons} setJetons={setJetons} appsBloquees={appsBloquees} toggleApp={toggleApp} />
+          )}
         </Tab.Screen>
+
+        {/* ONGLET RÉGLAGES */}
         <Tab.Screen name="SettingsTab" options={{ title: t.settings, tabBarIcon: ({color}) => <SettingsIcon color={color} /> }}>
-          {() => estPremium ? 
-            <SettingsScreenPremium t={t} langue={langue} changerLangue={setLangue} dureeActuelle={dureePreferee} changerDuree={(d)=>{setDureePreferee(d);setSecondes(d)}} reinitialiser={reinitialiser} setEstPremium={setEstPremium} modeSombre={modeSombre} setModeSombre={setModeSombre} /> : 
-            <SettingsScreenFree t={t} langue={langue} changerLangue={setLangue} dureeActuelle={dureePreferee} changerDuree={(d)=>{setDureePreferee(d);setSecondes(d)}} reinitialiser={reinitialiser} setEstPremium={setEstPremium} />
-          }
+          {() => estPremium ? (
+            <SettingsScreenPremium 
+              t={t} langue={langue} changerLangue={setLangue} 
+              dureeActuelle={dureePreferee} changerDuree={(d)=>{setDureePreferee(d);setSecondes(d)}} 
+              reinitialiser={reinitialiser} setEstPremium={setEstPremium} 
+              modeSombre={modeSombre} setModeSombre={setModeSombre} 
+            />
+          ) : (
+            <SettingsScreenFree 
+              t={t} langue={langue} changerLangue={setLangue} 
+              dureeActuelle={dureePreferee} changerDuree={(d)=>{setDureePreferee(d);setSecondes(d)}} 
+              reinitialiser={reinitialiser} setEstPremium={setEstPremium} 
+            />
+          )}
         </Tab.Screen>
+
       </Tab.Navigator>
     </NavigationContainer>
   );
