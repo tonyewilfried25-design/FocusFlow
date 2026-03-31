@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "FocusFlow",
-    "slug": "focusflow",
+    "slug": "FocusFlow",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -18,17 +18,26 @@
       "supportsTablet": true
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#ffffff"
-      },
       "package": "com.tonye.focusflow",
       "permissions": [
         "PACKAGE_USAGE_STATS",
         "SYSTEM_ALERT_WINDOW",
         "VIBRATE"
-      ]
+      ],
+      "backgroundColor": "#ffffff"
     },
+    "updates": {
+      "url": "https://u.expo.dev/VOTRE_ID_PROJET"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "3544654f-9919-4c1f-990c-eea818c29056"
+      }
+    },
+    "owner": "tonye01",
     "plugins": [
       [
         "expo-build-properties",
@@ -42,12 +51,9 @@
           }
         }
       ]
-    ],
-    "extra": {
-      "eas": {
-        "projectId": "3544654f-9919-4c1f-990c-eea818c29056"
-      }
-    },
-    "owner": "tonye01"
+    ]
+  },
+  "cli": {
+    "appVersionSource": "remote"
   }
 }
