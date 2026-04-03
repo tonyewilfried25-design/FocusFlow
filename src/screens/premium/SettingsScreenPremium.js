@@ -11,7 +11,6 @@ export default function SettingsScreenPremium({ t, langue, changerLangue, dureeA
     <View style={[styles.container, !isDark && {backgroundColor: '#F8FAFC'}]}>
       <View style={styles.header}><Text style={[styles.title, !isDark && {color: '#1E293B'}]}>{t.settings} ELITE</Text><Crown color="#F59E0B" size={24} fill="#F59E0B" /></View>
       <ScrollView style={{ paddingHorizontal: 25 }}>
-        
         <Text style={styles.sectionTitle}>{t.theme}</Text>
         <View style={styles.themeRow}>
           <TouchableOpacity onPress={() => setModeSombre(true)} style={[styles.themeBtn, isDark && styles.themeActive]}>
@@ -21,13 +20,11 @@ export default function SettingsScreenPremium({ t, langue, changerLangue, dureeA
             <Sun color={!isDark ? "#F59E0B" : "#475569"} size={20} /><Text style={{color: !isDark ? '#F59E0B' : '#475569', marginLeft: 10}}>{t.light}</Text>
           </TouchableOpacity>
         </View>
-
         <Text style={styles.sectionTitle}>{t.lang.toUpperCase()}</Text>
-        <div style={styles.langRow}>
-          <TouchableOpacity onPress={() => changerLangue('fr')} style={[styles.langBtn, langue === 'fr' && styles.langActive]}><Text style={{color: 'white'}}>🇫🇷 FR</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => changerLangue('en')} style={[styles.langBtn, langue === 'en' && styles.langActive]}><Text style={{color: 'white'}}>🇺🇸 EN</Text></TouchableOpacity>
-        </div>
-
+        <View style={styles.langRow}>
+          <TouchableOpacity onPress={() => changerLangue('fr')} style={[styles.langBtn, langue === 'fr' && styles.langActive]}><Text style={{color: isDark ? 'white' : 'black'}}>🇫🇷 FR</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => changerLangue('en')} style={[styles.langBtn, langue === 'en' && styles.langActive]}><Text style={{color: isDark ? 'white' : 'black'}}>🇺🇸 EN</Text></TouchableOpacity>
+        </View>
         <Text style={styles.sectionTitle}>{t.customTime}</Text>
         <View style={[styles.customBox, !isDark && {backgroundColor: 'white', borderColor: '#E2E8F0', borderWidth: 1}]}>
             <View style={styles.inputRow}>
@@ -37,7 +34,6 @@ export default function SettingsScreenPremium({ t, langue, changerLangue, dureeA
             </View>
             <TouchableOpacity style={styles.btnApply} onPress={() => changerDuree((parseInt(minS||0)*60)+parseInt(secS||0))}><Text style={styles.btnApplyText}>{t.apply.toUpperCase()}</Text></TouchableOpacity>
         </View>
-
         <TouchableOpacity style={styles.btnReset} onPress={reinitialiser}><Trash2 color="#EF4444" size={20} /><Text style={{color: '#EF4444', fontWeight: 'bold', marginLeft: 10}}>{t.reset}</Text></TouchableOpacity>
         <TouchableOpacity style={styles.btnFree} onPress={() => setEstPremium(false)}><LogOut color="#475569" size={18} /><Text style={{color: '#475569', marginLeft: 10}}>Switch to Free</Text></TouchableOpacity>
       </ScrollView>
